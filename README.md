@@ -14,10 +14,10 @@ Popis:
  - ovládání přejezdu (zapnuto/vypnuto): D11
  
  Terminál:
- - help				                    zobrazení nápovědy
- - show			              	      aktuální konfigurace spínacích napětí (defaultně 2,5 V)
- - sen 'X' ONvoltage 'Y'	      změní spínací napětí senzoru X na hodnotu Y
- - monitor on			               zapne vypisování napětí na sériový monitor
- - monitor off			              vypne vypisování napětí na sériový monitor
+ - help:				                    zobrazení nápovědy
+ - show:			              	      aktuální konfigurace spínacích napětí (defaultně 2,5 V)
+ - sen 'X' ONvoltage 'Y':	      změní spínací napětí senzoru X na hodnotu Y
+ - monitor on:			               zapne vypisování napětí na sériový monitor
+ - monitor off:			              vypne vypisování napětí na sériový monitor
 
  
