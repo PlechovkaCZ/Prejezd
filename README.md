@@ -7,11 +7,11 @@ Popis:
  - nastavení za běhu (serial monitor)
  
  Porty:
- - adresy multiplexor/ů: D2, D3, D4, D5
+ - adresy multiplexor/ů: D3, D4, D5, D6
  - odečítání hodnoty (podle množství multiplexorů): A0, A1, A2, A3
  - ovládání blikače: D8, D9
  - spínání infra LED: D12
- - ovládání přejezdu (zapnuto/vypnuto): D11
+ - ovládání přejezdu (zapnuto/vypnuto): D2
  
  Terminál:
  - help:				                    zobrazení nápovědy
