@@ -1,6 +1,6 @@
 # Prejezd
 
-#Popis:
+Popis:
  - ovládání jednoho páru výstražníků
  - možnost zvolenímaximálního jasu LED
  - simulace zhasínání a rozsvicení žárovek
