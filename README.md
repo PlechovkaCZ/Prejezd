@@ -13,6 +13,9 @@ Popis:
  - spínání infra LED: D12
  - ovládání přejezdu (zapnuto/vypnuto): D2
  
+ Základní nastavení:
+ - Proměnnou 'mux_number' se nastavuje kolik multiplexorů jepoužito (1-4), první multiplexor musí být na pinu A0, druhý na A1 atd.
+ 
  Terminál:
  - help:				                    zobrazení nápovědy
  - show:			              	      aktuální konfigurace spínacích napětí (defaultně 2500 mV)
