@@ -15,8 +15,8 @@ Popis:
  
  Terminál:
  - help:				                    zobrazení nápovědy
- - show:			              	      aktuální konfigurace spínacích napětí (defaultně 2,5 V)
- - sen 'X' ONvoltage 'Y':	      změní spínací napětí senzoru X na hodnotu Y
+ - show:			              	      aktuální konfigurace spínacích napětí (defaultně 2500 mV)
+ - sen 'X' ONvoltage 'Y':	      změní spínací napětí senzoru X na hodnotu Y [mV]
  - monitor on:			               zapne vypisování napětí na sériový monitor
  - monitor off:			              vypne vypisování napětí na sériový monitor
 
