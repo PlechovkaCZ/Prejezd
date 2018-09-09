@@ -39,6 +39,7 @@ void eeprom_zapis_napeti(int epr_addr, int data); //Zapíše spínací napětí 
 int eeprom_precti_napeti(int epr_addr); //Přečte napětí z eeprom (adres(první))
 void print_WC(void); //Vypíše na seriovou linku text
 void zpracuj_buffik(void); //Zpracuje příkaz z buffiku (sériová linka)
+vypis_oddelovac(byte, byte); //Vypíše řádku několika znaků, znaky: 1. argumentv - ASCII, počet: 2. argument
 
 //Třídy
 class sensor{
@@ -73,6 +74,10 @@ class sensor{
 
     byte get_analog_pin(void){ //Vrátí pin, na kterém se má měřit napětí
       return analog_pin;
+    }
+
+    int print_ONvoltage(void){ //Vrátí hodnotu spínacího napětí
+      return on_voltage;
     }
     
     int get_eeprom_addr (void); //Vrátí adresu prvního bytu napětí v eeprom
@@ -252,7 +257,6 @@ void serialEvent(){
   while(Serial.available()){
     if(buffik.length() >= max_buffik){
       print_WC();
-      buffik = "";
     }
     novy_char = (char)Serial.read();
     buffik += novy_char;
@@ -267,7 +271,8 @@ void serialEvent(){
    *    - Vypíše na sériovou linku zadaný text
    */
 void print_WC(){
-  Serial.println("Chybny prikaz !");
+  Serial.println("Neplatny prikaz !");
+  buffik = "";
 }
 //------------------------------------------------------------------------------------------------------
 //>>>>> Funkce pro zpracování příkazů z buffiku <<<<<
@@ -280,7 +285,42 @@ void print_WC(){
    *    - 'monitor off': vypne vypisopvání naměřených hodnot ze senzoru na sériový monitor
    */
 void zpracuj_buffik(){
-  
+  byte buffik_index = 0;
+  //--- Příkaz HELP ---
+    if(buffik[0] == 'h' && buffik[1] == 'e' && buffik[2] == 'l' && buffik [3] == 'p' && buffik [4] == 10){
+      Serial.println("Tady bude HELP");
+      buffik = "";
+      buffik_index = 0;
+    //--- Příkaz SHOW ---
+    else if(buffik[0] == 's' && buffik[1] == 'h' && buffik[2] == 'o' && buffik [3] == 'w' && buffik [4] == 10){
+      Serial.println("vykonavam show");
+      vypis_oddelovac(75,30);
+      //Serial.println("\n Cislo senzoru   spinaci napeti");
+      for(int i; i <  mux_number*mux_inputs; i++){
+        Serial.print("Senzor ");
+        Serial.print(i+1);
+        Serial.print(": ");
+        Serial.print(cidlo[i].print_ONvoltage());
+        Serial.println(" mV");     
+      }
+      buffik = "";
+      buffik_index = 0;
+    }
+    else{
+      print_WC();
+    }
+}
+//------------------------------------------------------------------------------------------------------
+//>>>>> Funkce na výpis oddělovače <<<<<
+  /*  Princip
+   *    - podle indexu (1. argument) vypíše počet oddělovačů (2. argument)
+   *    - index je hodnota v ASCII tabulce
+  */
+
+void vypis_oddelovac(byte index, byte pocet){
+  for(int i = 0; i < pocet; i++){
+    Serial.print((char)index);
+  }
 }
 //------------------------------------------------------------------------------------------------------
 
