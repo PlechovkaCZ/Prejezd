@@ -24,7 +24,7 @@ byte white_led = 9; //pin D9, sepnutí bílých LED
 #define info_interval 10000 //Jak čaato se má zobrazovat zpráva o stavu (aktivaci) přejezdu
 bool obsazeno = false; //Pokud je přejezd aktivní - je na něm vlak, blikají červená světla, pak true
 bool prejezd_status = false; //zapnutí/vypnutí přejezdu NEPOUŽITO
-bool write_voltage = true; //Zda se má vypisovat napětí ze senzorů na sériový monitor
+bool write_voltage = false; //Zda se má vypisovat napětí ze senzorů na sériový monitor
 unsigned long odpocet1 = 0;
 
 //Proměnné pro funkci příkazové řádky - terminál
@@ -39,7 +39,8 @@ void eeprom_zapis_napeti(int epr_addr, int data); //Zapíše spínací napětí 
 int eeprom_precti_napeti(int epr_addr); //Přečte napětí z eeprom (adres(první))
 void print_WC(void); //Vypíše na seriovou linku text
 void zpracuj_buffik(void); //Zpracuje příkaz z buffiku (sériová linka)
-vypis_oddelovac(byte, byte); //Vypíše řádku několika znaků, znaky: 1. argumentv - ASCII, počet: 2. argument
+void vypis_oddelovac(byte, byte); //Vypíše řádku několika znaků, znaky: 1. argumentv - ASCII, počet: 2. argument
+//void serialEvent(void); //  Čeká až bude něco na vstupu a pak to zpracuje
 
 //Třídy
 class sensor{
@@ -118,12 +119,14 @@ void sensor::set_mux(void){
 //Nastavení senzorů (pole)
   sensor *cidlo = (sensor*)malloc((mux_number*mux_inputs)*sizeof(sensor));
 
-  
+/*
+ * >>>>>>>>>> SETUP <<<<<<<<<<
+ */  
 void setup() {
   Serial.begin(9600); //Příprava seériové linky
   buffik.reserve(max_buffik);
   Serial.println("Sprava zeleznicniho prejezdu");
-  Serial.println("Nacitam data z interni eeprom");
+  Serial.println("Nastavuji piny");
   //Nastavení výstupů a vstupů
   pinMode(ir_led, OUTPUT);
   pinMode(red_led, OUTPUT);
@@ -133,9 +136,10 @@ void setup() {
     pinMode(mux_addr_pin[i], OUTPUT);
   }
   //Interupt pro spínání přejezdu
-  attachInterrupt(digitalPinToInterrupt(stat_pin), kontroluj_obsazeni, RISING); //Zapnutí
+  //attachInterrupt(digitalPinToInterrupt(stat_pin), kontroluj_obsazeni, RISING); //Zapnutí
   //attachInterrupt(digitalPinToInterrupt(stat_pin), stop_prejezd, FALLING); //Vypnutí
-//  Tvorba objektů senzorů (cidel)
+  //  Tvorba objektů senzorů (cidel)
+  Serial.println("Pripravuji senzory");
   for (int i; i < mux_number*mux_inputs; i++){ 
     byte analog_index = i/mux_inputs;
     byte zbytek_deleni = i % mux_inputs;
@@ -147,13 +151,20 @@ void setup() {
     cidlo[i] = sensor(first_byte_addr+(2*i), adresa, mux_analog_pin[analog_index]); 
   }
   //Čtení spínacího napětí z eeprom
+  Serial.println("Nacitam data z interni eeprom");
   for (int i; i < mux_number*mux_inputs; i++){ 
     cidlo[i].get_ONvoltage();
   }
+  Serial.println("PRIPRAVEN !");
 }
 
+/*
+ * >>>>>>>>>> LOOP <<<<<<<<<<
+ */
 void loop() {
-  kontroluj_obsazeni();
+  if(digitalRead(stat_pin) == HIGH){
+    kontroluj_obsazeni(); 
+  }
   if(millis() - odpocet1 >= info_interval){
     Serial.println("Prejezd je deaktivovany");
     odpocet1 = millis();
@@ -185,12 +196,19 @@ void kontroluj_obsazeni(void){
   int merene_napeti = 0; //Napětí změřené s zepnutou IR LED
   int napeti_sum = 0; //Napětí bez IR LED (šum)
   int napeti = 0; //Napětí na senzoru po odečtení šumu
-  while(digitalRead(stat_pin) == HIGH){ //Pokud je ovládací pin sepnutý 
-    if(millis() - odpocet1 >= info_interval){
-      Serial.println("Prejezd je deaktivovany");
+  //Informace
+  odpocet1=millis();
+  Serial.println("Aktivuji prejezd"); 
+  while(digitalRead(stat_pin) == HIGH){ //Pokud je ovládací pin sepnutý projíždí dokola všechny senzory
+    //Kontrola příkazů na sériové lince
+    if(Serial.available()){
+      serialEvent();
+    }
+    if(millis() - odpocet1 >= info_interval){//Pravidelná informace o aktivním/deaktivním přejezdu
+      Serial.println("Prejezd je aktivni");
       odpocet1 = millis();
     }
-    if (mux_number*mux_inputs <= cidlo_index){
+    if (mux_number*mux_inputs <= cidlo_index){ //Hlídá počet senzorů
       cidlo_index = 0;
     }
     digitalWrite(ir_led, HIGH); //Zapne IR LED
@@ -260,8 +278,8 @@ void serialEvent(){
     }
     novy_char = (char)Serial.read();
     buffik += novy_char;
-    if(novy_char == '\n'){
-      void zpracuj_buffik();
+    if((novy_char == '\n') || ((byte)novy_char == (byte)10)){
+      zpracuj_buffik();
     }
   }
 }
@@ -291,10 +309,11 @@ void zpracuj_buffik(){
       Serial.println("Tady bude HELP");
       buffik = "";
       buffik_index = 0;
+    }
     //--- Příkaz SHOW ---
     else if(buffik[0] == 's' && buffik[1] == 'h' && buffik[2] == 'o' && buffik [3] == 'w' && buffik [4] == 10){
-      Serial.println("vykonavam show");
-      vypis_oddelovac(75,30);
+      vypis_oddelovac(61,30);
+      Serial.println("");
       //Serial.println("\n Cislo senzoru   spinaci napeti");
       for(int i; i <  mux_number*mux_inputs; i++){
         Serial.print("Senzor ");
@@ -303,6 +322,8 @@ void zpracuj_buffik(){
         Serial.print(cidlo[i].print_ONvoltage());
         Serial.println(" mV");     
       }
+      vypis_oddelovac(61,30);
+      Serial.println("");
       buffik = "";
       buffik_index = 0;
     }
