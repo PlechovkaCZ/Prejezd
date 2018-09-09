@@ -23,7 +23,7 @@ byte white_led = 9; //pin D9, sepnutí bílých LED
 //Proměnné pro práci přejezdu
 #define info_interval 10000 //Jak čaato se má zobrazovat zpráva o stavu (aktivaci) přejezdu
 bool obsazeno = false; //Pokud je přejezd aktivní - je na něm vlak, blikají červená světla, pak true
-bool prejezd_status = false; //zapnutí/vypnutí přejezdu NEPOUŽITO
+bool prejezd_last = false; //Předchozí stav přejezdu (obsazeno/volno), pouze kvůli vypisování informací
 bool write_voltage = false; //Zda se má vypisovat napětí ze senzorů na sériový monitor
 unsigned long odpocet1 = 0;
 
@@ -41,6 +41,8 @@ void print_WC(void); //Vypíše na seriovou linku text
 void zpracuj_buffik(void); //Zpracuje příkaz z buffiku (sériová linka)
 void vypis_oddelovac(byte, byte); //Vypíše řádku několika znaků, znaky: 1. argumentv - ASCII, počet: 2. argument
 //void serialEvent(void); //  Čeká až bude něco na vstupu a pak to zpracuje
+int buffik_nacti_cislo (byte*); //Načte z bufffiku číslo (začne od pozice, která je předána jako argument)
+void nastav_svetla(void); //Podle proměnné 'obsazeno' nastavuje výstup, zda mají blikat červená nebo bílá světla
 
 //Třídy
 class sensor{
@@ -82,9 +84,10 @@ class sensor{
     }
     
     int get_eeprom_addr (void); //Vrátí adresu prvního bytu napětí v eeprom
-    void get_ONvoltage (void); //Přečte napětí z eeprom a změní ho
+    void get_ONvoltage (void); //Přečte napětí z eeprom a nastaví ho
     void change_ONvoltage (int); //Změní spínací napětí na danou hodnotu (v mV)
     void set_mux (void); //Nastaví adresu mux podle nastavení adresy v proměnné mux_addr
+    void change_last_stat (bool); //Změní hodnotu posledního stavu
 };
 
 int sensor::get_eeprom_addr(){
@@ -97,13 +100,14 @@ void sensor::get_ONvoltage(){
     on_voltage = vracene_napeti;
   }
   /*DEBUG*/
-  Serial.print("Spíací napětí: "); Serial.println(on_voltage); 
+  Serial.print("Spínací napětí: "); Serial.println(on_voltage); 
 }
 
 void sensor::change_ONvoltage(int nove){
   if((nove <=5000) &&(nove > 0)){
     eeprom_zapis_napeti(eeprom_addr, nove);
     on_voltage = nove;
+    Serial.println("Napeti uspesne zmeneno");
   }
   else {
     Serial.println("CHYBA!!! Napeti ma rozsah 0 - 5000 mV");
@@ -116,6 +120,9 @@ void sensor::set_mux(void){
   }
 }
 
+void sensor::change_last_stat(bool stat){
+  last_stat = stat;
+}
 //Nastavení senzorů (pole)
   sensor *cidlo = (sensor*)malloc((mux_number*mux_inputs)*sizeof(sensor));
 
@@ -130,7 +137,9 @@ void setup() {
   //Nastavení výstupů a vstupů
   pinMode(ir_led, OUTPUT);
   pinMode(red_led, OUTPUT);
+  digitalWrite(red_led, LOW);
   pinMode(white_led, OUTPUT);
+  digitalWrite(white_led, HIGH);
   pinMode(stat_pin, INPUT);
   for(int i; i<4; i++){
     pinMode(mux_addr_pin[i], OUTPUT);
@@ -165,6 +174,11 @@ void loop() {
   if(digitalRead(stat_pin) == HIGH){
     kontroluj_obsazeni(); 
   }
+  else{
+    digitalWrite(white_led, LOW);
+    digitalWrite(red_led, LOW);
+    digitalWrite(ir_led, LOW);
+  }
   if(millis() - odpocet1 >= info_interval){
     Serial.println("Prejezd je deaktivovany");
     odpocet1 = millis();
@@ -196,6 +210,7 @@ void kontroluj_obsazeni(void){
   int merene_napeti = 0; //Napětí změřené s zepnutou IR LED
   int napeti_sum = 0; //Napětí bez IR LED (šum)
   int napeti = 0; //Napětí na senzoru po odečtení šumu
+  bool stav_cidel = false; //Hlídá, zda je z celé sady nějaký senzor aktivní
   //Informace
   odpocet1=millis();
   Serial.println("Aktivuji prejezd"); 
@@ -210,6 +225,11 @@ void kontroluj_obsazeni(void){
     }
     if (mux_number*mux_inputs <= cidlo_index){ //Hlídá počet senzorů
       cidlo_index = 0;
+      if (!stav_cidel){
+        obsazeno = false;
+        nastav_svetla();
+      }
+      stav_cidel = false;
     }
     digitalWrite(ir_led, HIGH); //Zapne IR LED
     cidlo[cidlo_index].set_mux(); //Nastaví adresu na multiplxoru
@@ -226,7 +246,19 @@ void kontroluj_obsazeni(void){
       Serial.print(napeti);
       Serial.println(" mV");
     }
-
+    if (napeti >= cidlo[cidlo_index].print_ONvoltage()){
+      if (cidlo[cidlo_index].get_last_stat()){
+        obsazeno = true;
+        stav_cidel = true;
+        nastav_svetla();
+      }
+      else{
+        cidlo[cidlo_index].change_last_stat(true);
+      }
+    }
+    else if (napeti < cidlo[cidlo_index].print_ONvoltage()){
+      cidlo[cidlo_index].change_last_stat(false);
+    }
    cidlo_index++; 
   }
 }
@@ -305,14 +337,24 @@ void print_WC(){
 void zpracuj_buffik(){
   byte buffik_index = 0;
   //--- Příkaz HELP ---
-    if(buffik[0] == 'h' && buffik[1] == 'e' && buffik[2] == 'l' && buffik [3] == 'p' && buffik [4] == 10){
+    if(buffik[buffik_index = 0] == 'h' && buffik[++buffik_index] == 'e' && buffik[++buffik_index] == 'l' && buffik [++buffik_index] == 'p' && buffik [++buffik_index] == 10){
       Serial.println("Tady bude HELP");
+      vypis_oddelovac(61,120);
+      Serial.println("\nNapoveda k rizeni zeleznicniho prejezdu\n");
+      Serial.println("* help                    - Zobrazi tuto napovedu");
+      Serial.println("* show                    - Vypise nastaveni senzoru (jejich spinaci napeti)");
+      Serial.println("* set 'X' ONvoltage 'Y'   - Nastavi senzoru X spinaci napeti Y [mV]");
+      Serial.println("                          - Napeti se nastavuje v rozmezi 0 - 5000 mV");
+      Serial.println("                          - Pri prekroceni spinaciho napeti dojde k sepnuti prejezdu (obsazeno)");
+      Serial.println("* monitor on/off          - Zapina/vypina vypisovani merenych hodnot z dekoderu");
+      vypis_oddelovac(61,120);
+      Serial.println("");
       buffik = "";
       buffik_index = 0;
     }
     //--- Příkaz SHOW ---
-    else if(buffik[0] == 's' && buffik[1] == 'h' && buffik[2] == 'o' && buffik [3] == 'w' && buffik [4] == 10){
-      vypis_oddelovac(61,30);
+    else if(buffik[buffik_index = 0] == 's' && buffik[++buffik_index] == 'h' && buffik[++buffik_index] == 'o' && buffik [++buffik_index] == 'w' && buffik [++buffik_index] == 10){
+      vypis_oddelovac(61,40);
       Serial.println("");
       //Serial.println("\n Cislo senzoru   spinaci napeti");
       for(int i; i <  mux_number*mux_inputs; i++){
@@ -322,10 +364,53 @@ void zpracuj_buffik(){
         Serial.print(cidlo[i].print_ONvoltage());
         Serial.println(" mV");     
       }
-      vypis_oddelovac(61,30);
+      vypis_oddelovac(61,40);
       Serial.println("");
       buffik = "";
       buffik_index = 0;
+    }
+    //--- Příkaz ONvoltage ---
+    else if(buffik[buffik_index = 0] == 's' && buffik[++buffik_index] == 'e' && buffik[++buffik_index] == 't' && buffik [++buffik_index] == ' '){
+      int cislo_senzoru = 0;
+      int nove_napeti = 0;
+      cislo_senzoru = buffik_nacti_cislo (&buffik_index);
+      if(cislo_senzoru < 0){
+        print_WC();
+        return;
+      }
+      else if ((cislo_senzoru-1) < 0 || (cislo_senzoru-1) > mux_number*mux_inputs){
+        Serial.println("Chybne cislo senzoru");
+        buffik = "";
+        return;
+      }
+      if(buffik[++buffik_index] == 'O' && buffik[++buffik_index] == 'N' && buffik[++buffik_index] == 'v' && buffik[++buffik_index] == 'o' && buffik[++buffik_index] == 'l' && buffik[++buffik_index] == 't' && buffik[++buffik_index] == 'a' && buffik[++buffik_index] == 'g' && buffik[++buffik_index] == 'e' && buffik[++buffik_index] == ' '){
+        nove_napeti = buffik_nacti_cislo (&buffik_index);
+        if(cislo_senzoru < 0){
+          print_WC();
+          return;
+        }
+      }
+      cidlo[cislo_senzoru-1].change_ONvoltage(nove_napeti);
+      buffik_index = 0;
+      buffik = "";
+    }
+    //--- Příkaz monitor om/off ---
+    else if(buffik[buffik_index = 0] == 'm' && buffik[++buffik_index] == 'o' && buffik[++buffik_index] == 'n' && buffik [++buffik_index] == 'i' && buffik [++buffik_index] == 't' && buffik [++buffik_index] == 'o' && buffik [++buffik_index] == 'r' && buffik [++buffik_index] == ' '){
+      if(buffik[buffik_index + 1] == 'o' && buffik[buffik_index + 2] == 'n' && buffik[buffik_index + 3] == 10){
+        Serial.println("Zobrazuji merene napeti");
+        write_voltage = true;
+        buffik = "";
+        return;
+      }
+      else if(buffik[buffik_index + 1] == 'o' && buffik[buffik_index + 2] == 'f' && buffik[buffik_index + 3] == 'f' && buffik[buffik_index + 4] == 10){
+        Serial.println("Vypinam zobrazeni mereneho napeti");
+        write_voltage = false;
+        buffik = "";
+        return;
+      }
+      else{
+        print_WC();
+      }
     }
     else{
       print_WC();
@@ -342,6 +427,54 @@ void vypis_oddelovac(byte index, byte pocet){
   for(int i = 0; i < pocet; i++){
     Serial.print((char)index);
   }
+}
+//------------------------------------------------------------------------------------------------------
+//>>>>> Funkce načtení čísla z buffiku <<<<<
+  /*  Princip
+   *    - načte číslo (int) z buffiku a vrátí ho
+   *    - začne od pozice, která je uvedena v argumentu
+   *    - pokud za číslem není mezera nebo prázdný řádek, vrátí -1
+  */
+
+int buffik_nacti_cislo (byte* index){
+  int navrat = 0;
+  byte pozice = *index + 1;
+  while((buffik[pozice] > 47 && buffik[pozice] < 58) || buffik[pozice] == ' ' || buffik[pozice] == 10 ){
+    if (buffik[pozice] == ' '|| buffik[pozice] == 10){
+      *index = pozice;
+      return navrat;
+    }
+    navrat = navrat*10 + (int)(buffik[pozice]-'0');
+    pozice++;
+    
+  }
+  return -1;
+}
+//------------------------------------------------------------------------------------------------------
+//>>>>> Funkce nastavení přejezdu <<<<<
+  /*  Princip
+   *    - podle proměnné obsazeno přepíná výstupy
+   *    - pokud obsazeno = false: blíká bíla
+   *    - pokud obsazeno = true: bliká červená
+  */
+
+void nastav_svetla(){
+    if (obsazeno){
+      digitalWrite(white_led, LOW);
+      digitalWrite(red_led, HIGH);
+      if(obsazeno != prejezd_last){
+        prejezd_last = true;
+        Serial.println("Prejezd je obsazen");
+      }
+    }
+    else{
+      digitalWrite(red_led, LOW);
+      digitalWrite(white_led, HIGH);
+      if(obsazeno != prejezd_last){
+        prejezd_last = false;
+        Serial.println("Prejezd je volny");
+      }
+    }
 }
 //------------------------------------------------------------------------------------------------------
 
