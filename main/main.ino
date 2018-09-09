@@ -37,6 +37,8 @@ void kontroluj_obsazeni (void); //Když je přejezd zapnutý, pravidelně kontro
 //void stop_prejezd(void); //Při vypnutí přejezdu okamžitě zastaví jeho funkci
 void eeprom_zapis_napeti(int epr_addr, int data); //Zapíše spínací napětí do eeprom (adresa (první), napetí [mV])
 int eeprom_precti_napeti(int epr_addr); //Přečte napětí z eeprom (adres(první))
+void print_WC(void); //Vypíše na seriovou linku text
+void zpracuj_buffik(void); //Zpracuje příkaz z buffiku (sériová linka)
 
 //Třídy
 class sensor{
@@ -248,9 +250,37 @@ int eeprom_precti_napeti(int epr_addr){
 void serialEvent(){
   char novy_char = "";
   while(Serial.available()){
+    if(buffik.length() >= max_buffik){
+      print_WC();
+      buffik = "";
+    }
     novy_char = (char)Serial.read();
     buffik += novy_char;
+    if(novy_char == '\n'){
+      void zpracuj_buffik();
+    }
   }
+}
+//------------------------------------------------------------------------------------------------------
+//>>>>> Funkce pro vypsání špatného příkazu <<<<<
+  /*  Vypíše chybové hlášení
+   *    - Vypíše na sériovou linku zadaný text
+   */
+void print_WC(){
+  Serial.println("Chybny prikaz !");
+}
+//------------------------------------------------------------------------------------------------------
+//>>>>> Funkce pro zpracování příkazů z buffiku <<<<<
+  /*  Vypíše chybové hlášení
+   *    - Načte buffik a podle toho vykoná příkaz
+   *    - 'help': Vypíše seznam příkazů a jejich popis
+   *    - 'show': Vypíše nastavení spínacích napětí (ukládají e do eeprom, defaultně 2500 mV)
+   *    - 'set X ONvoltage Y': změní spínací napětí senzoru X na hodnotu Y [mV], ukládá se do eeprom
+   *    - 'monitor on': zapne vypisopvání naměřených hodnot ze senzoru na sériový monitor
+   *    - 'monitor off': vypne vypisopvání naměřených hodnot ze senzoru na sériový monitor
+   */
+void zpracuj_buffik(){
+  
 }
 //------------------------------------------------------------------------------------------------------
 
