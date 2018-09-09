@@ -21,9 +21,11 @@ byte white_led = 9; //pin D9, sepnutí bílých LED
 #define first_byte_addr 10 //Adresa prvního bytu s uloženými hodnotami v eeprom
 
 //Proměnné pro práci přejezdu
+#define info_interval 10000 //Jak čaato se má zobrazovat zpráva o stavu (aktivaci) přejezdu
 bool obsazeno = false; //Pokud je přejezd aktivní - je na něm vlak, blikají červená světla, pak true
 bool prejezd_status = false; //zapnutí/vypnutí přejezdu NEPOUŽITO
 bool write_voltage = true; //Zda se má vypisovat napětí ze senzorů na sériový monitor
+unsigned long odpocet1 = 0;
 
 //Proměnné pro funkci příkazové řádky - terminál
 #define max_buffik 40 //Maximální počet znaků v buffiku
@@ -145,9 +147,11 @@ void setup() {
 
 void loop() {
   kontroluj_obsazeni();
-  Serial.println("Prejezd je deaktivovany");
-  delay(10000);
-
+  if(millis() - odpocet1 >= info_interval){
+    Serial.println("Prejezd je deaktivovany");
+    odpocet1 = millis();
+  }
+ delay(100);
 }
 // FUNKCE
 //------------------------------------------------------------------------------------------------------
@@ -170,14 +174,15 @@ void stop_prejezd(void){
    *    - Pokud je dvakrát naměřena stejná hodnota (dekodér je zastíněn/nezastíněn), přepne se celý stav přejezdu na obsazeno (bílá LED)/volno (červená LED)
    */
 void kontroluj_obsazeni(void){
-  Serial.println("Aktivuji prejezd");
   int cidlo_index = 0;
   int merene_napeti = 0; //Napětí změřené s zepnutou IR LED
   int napeti_sum = 0; //Napětí bez IR LED (šum)
   int napeti = 0; //Napětí na senzoru po odečtení šumu
-  while(digitalRead(stat_pin) == HIGH){
-    Serial.println("Prejezd aktivni");
-    delay(500);
+  while(digitalRead(stat_pin) == HIGH){ //Pokud je ovládací pin sepnutý 
+    if(millis() - odpocet1 >= info_interval){
+      Serial.println("Prejezd je deaktivovany");
+      odpocet1 = millis();
+    }
     if (mux_number*mux_inputs <= cidlo_index){
       cidlo_index = 0;
     }
@@ -241,7 +246,7 @@ int eeprom_precti_napeti(int epr_addr){
    *    - Pokud je zadán delší řetězec než rezervovaný počet znaků, vypíše se chyba
    */
 void serialEvent(){
-  char novy_char = '';
+  char novy_char = "";
   while(Serial.available()){
     novy_char = (char)Serial.read();
     buffik += novy_char;
