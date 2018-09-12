@@ -1,0 +1,11 @@
+>>>>>>> Popis funkce ovladaèe pøejezdu <<<<<<<
+ - Pøejezd je øízen deskou Arduino nano
+ - Pøi pøipojení k poèítaèi pomocí USB lze prostøednictvím sériové linky programovat základní vlastnosti
+ - Celé zaøízení je napájeno transformátorem 18 V AC
+ - Dva DCtoDC konvertory zajištují napájení (5 V pro arduino a senzory; 12 V pro blikaè)
+ - Dekodér lze aktivovat (aktivovat jeho funkci) pøivadením napìtí na svorky J1 (napìtí mùže být 7 - 20 V DC)
+ - Spínací pin je odddìlenpomocí optoèlenu od zbytku zaøízení
+ - JEdnotlivé optické snímaèe se pøipojují na 4-pinové konektory
+ - Pøejezd mùže být vybaven 1 - 4 16-multiplexory (16 - 64 senzorù)
+ - Napájení IR LED na senzorech je spínáno tranzistorem Q1 (BS170), ovládán pinem D12 arduina
+ - Zapojení obsahuje dva klopné odvody pro øízení LED výstražníkù (Q6 èervená a Q7 bílá)
