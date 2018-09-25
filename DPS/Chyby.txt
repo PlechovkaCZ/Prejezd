@@ -1,0 +1,3 @@
+Pro hlavní modul:
+- Chybí zem u LED a optoèlenu (spínání/aktivace pøejezdu), nutno pøipojit na zem ze stabilizátoru 7805
+- Chybí díra pro kabel pro napájení 5 V k senzorùm
