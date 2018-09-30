@@ -63,12 +63,13 @@ class sensor{
       }
       analog_pin = readpin;
       /* DEBUG */
-      Serial.println("Volán konstruktor sensor");
+      /*Serial.println("Volán konstruktor sensor");
       Serial.print("eepr_addr: "); Serial.print(eepr); Serial.print("; analog_pin: "); Serial.print(readpin); Serial.print("; mux_addr_seq: ");
       for(int i; i < 4; i++){
         Serial.print(mux_addr[i]); 
       }
       Serial.println("");
+      */
     }
     
     bool get_last_stat(){ //Vrátí poslední stat senzoru
