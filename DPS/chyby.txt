@@ -1,3 +1,0 @@
-Pro hlavní modul:
-- Chybí zem u LED a optočlenu (spínání/aktivace přejezdu), nutno připojit na zem ze stabilizátoru 7805
-- Chybí díra pro kabel pro napájení 5 V k senzorům
